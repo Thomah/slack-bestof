@@ -24,30 +24,36 @@ db.init(() => {
             var limit = new Date("2019-01-01");
             logger.log(`Récupération des messages jusqu'au ${limit.toLocaleDateString()}`);
 
-            setTimeout(function() {
-                getHistory(res.channels[0].id, limit, Date.now());
-            }, 1000);
+            getAllChannelsHistory(res.channels, 0, limit);
+
         }
     })();
 
 });
 
-function getHistory(channel, limit, latest) {
+function getAllChannelsHistory(channels, index, limit) {
+    if(index < channels.length) {
+        logger.log(`Traitement du channel ${channels[index].name}`);
+        setTimeout(function() {
+            getHistory(channels, index, limit, Date.now());
+        }, 1000);
+    } else {
+        logger.log("Fin de récupération des messages");
+    }
+}
+
+function getHistory(channels, index, limit, latest) {
     (async() => {
-        var res = await web.channels.history({ channel: channel, latest: latest });
+        var res = await web.channels.history({ channel: channels[index].id, latest: latest });
         if (res.ok) {
-            extractMessages(res.messages, limit, 0, () => {
-                setTimeout(function() {
-                    getHistory(channel, limit, res.messages[messages.length - 1].ts);
-                }, 1000);
-            });
+            extractMessages(channels, index, res.messages, limit, 0);
         }
     })();
 }
 
-function extractMessages(messages, limit, index, callback) {
-    if (index < messages.length) {
-        message = messages[index];
+function extractMessages(channels, index, messages, limit, indexMessage) {
+    if (indexMessage < messages.length) {
+        message = messages[indexMessage];
         var date = new Date(message.ts * 1000);
         var dateReach = false;
         dateReach = date.getTime() < limit.getTime();
@@ -60,16 +66,23 @@ function extractMessages(messages, limit, index, callback) {
             db.insert("messages", message, (data) => {
                 var reactions = message.reactions;
                 extractReactions(data.insertedId, reactions, 0, () => {
-                    extractMessages(messages, limit, index + 1, callback);
+                    extractMessages(channels, index, messages, limit, indexMessage + 1);
                 });
             });
         } else if (!dateReach) {
             logger.log("Date limite non atteinte");
-            extractMessages(messages, limit, index + 1, callback);
+            extractMessages(channels, index, messages, limit, indexMessage + 1);
+        } else if (dateReach) {
+            logger.log("Date limite atteinte");
+            getAllChannelsHistory(channels, index + 1, limit)
         }
     } else {
         logger.log("Fin des messages de la liste");
-        callback();
+        if(messages[messages.length - 1] != undefined) {
+            setTimeout(function() {
+                getHistory(channels, index, limit, messages[messages.length - 1].ts);
+            }, 1000);
+        }
     }
 }
 
