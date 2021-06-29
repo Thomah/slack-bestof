@@ -18,7 +18,7 @@ if (process.env.http_proxy) {
 db.init(() => {
 
     (async() => {
-        var res = await web.channels.list({});
+        var res = await web.conversations.list({});
         if (res.ok) {
 
             var limit = new Date("2019-01-01");
@@ -44,7 +44,7 @@ function getAllChannelsHistory(channels, index, limit) {
 
 function getHistory(channels, index, limit, latest) {
     (async() => {
-        var res = await web.channels.history({ channel: channels[index].id, latest: latest });
+        var res = await web.conversations.history({ channel: channels[index].id, latest: latest });
         if (res.ok) {
             extractMessages(channels, index, res.messages, limit, 0);
         }
